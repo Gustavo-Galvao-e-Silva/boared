@@ -1,8 +1,8 @@
 {
   "name": "boared",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Prep math study sessions (PLUS/SI/recitation): session plans, verified practice questions, and .pptx decks built from your own template.",
   "author": { "name": "Gustavo Galvao e Silva" },
   "license": "MIT",
-  "keywords": ["education", "math", "linear-algebra", "slides", "pptx"]
+  "keywords": ["education", "math", "linear-algebra", "slides", "pptx", "study-sessions"]
 }
