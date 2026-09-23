@@ -1,3 +1,7 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["panchi>=2.0.0", "python-pptx>=1.0", "pyyaml>=6.0", "pydantic>=2.0", "sympy>=1.12", "pillow>=10"]
+# ///
 """Show what the leader changed between the generated deck and the one they presented.
 
 Usage:
@@ -18,6 +22,7 @@ from pathlib import Path
 
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
+
 from pptx_common import iter_shapes
 
 
@@ -93,9 +98,7 @@ def diff(old_path: Path, new_path: Path) -> str:
             out += ["", f"## Removed slide {a.number}: {a.title}", *(f"    {line}" for line in a.lines)]
             continue
         text = [
-            line
-            for line in difflib.unified_diff(a.lines, b.lines, lineterm="", n=0)
-            if not line.startswith(("---", "+++", "@@"))
+            line for line in difflib.unified_diff(a.lines, b.lines, lineterm="", n=0) if not line.startswith(("---", "+++", "@@"))
         ]
         notes_changed = a.notes != b.notes
         pics_changed = a.pictures != b.pictures
