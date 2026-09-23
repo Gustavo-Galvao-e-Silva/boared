@@ -1,0 +1,10 @@
+# private course material — never publish
+courses/*
+!courses/.gitkeep
+
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+~$*.pptx
