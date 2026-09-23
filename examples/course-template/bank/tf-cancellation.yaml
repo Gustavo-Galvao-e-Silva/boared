@@ -1,0 +1,11 @@
+id: tf-cancellation
+slot: tf
+tags: [matrix-multiplication, inverses]
+statement: "If AB = AC and A ≠ 0, then B = C."
+answer: false
+justification: "A = [[1,0],[0,0]], B = I, C = [[1,0],[0,2]] gives AB = AC with B ≠ C. True if A is invertible."
+source: from scratch
+difficulty: medium
+verified: true
+last_used: null
+times_used: 0

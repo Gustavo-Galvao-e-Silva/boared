@@ -6,9 +6,13 @@ session:
   length_min: 50
   structure: default           # see skills/session-prep/references/session-structure.md
 drive_folder: ""               # optional Google Drive folder URL/id
+drive_local: ""                # optional local path of that folder (Drive for desktop)
 schedule:
   - week: 1
     start: 2026-08-17          # Monday of the week
     sections: ["1.1 Systems of linear equations"]
     goals: ["translate word problems into systems"]
     notes: ""
+    sessions:                  # session numbers shown on slides; never inferred
+      - {date: 2026-08-18, number: 1}
+      - {date: 2026-08-20, number: 2}

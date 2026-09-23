@@ -1,108 +1,113 @@
 ---
 name: session-prep
-description: Prepare a math study session (PLUS / Supplemental Instruction / recitation) — session plan, verified practice questions, and a .pptx deck built from the leader's own template. Use when the user wants to prep, plan, or make slides for an upcoming study/PLUS/SI session or asks for practice questions for a course week. Linear algebra is verified with panchi.
+description: Prepare a math study session (PLUS / Supplemental Instruction / recitation) — session plan, verified practice questions, and a .pptx deck built from the leader's own template. Use when the user wants to prep, plan, or make slides for an upcoming study/PLUS/SI session or asks for practice questions for a course week. Linear algebra is verified with panchi; generated problems (RREF, inverses, eigenvalues, span, LU) come with their own checks.
 ---
 
 # Session prep
 
-Turn "prep next session" into: a session plan → verified questions → a deck copied from the leader's template. The leader should only need to review, not re-explain the course.
+Turn "prep next session" into: verified questions → a plan the leader reviews → a deck copied from the leader's template. The leader should only need to review, not re-explain the course.
 
-Scripts live in `scripts/` next to this file. Run them with uv so dependencies resolve anywhere:
+**Every question has one identity.** It has an `id` and lives in one file, `sessions/<date>/questions.yaml`. The plan, the checks, the deck and the bank all refer to that ID. Never copy a question's text into another file by hand. Edit `questions.yaml` and re-render.
 
-```
-uv run --with panchi --with python-pptx --with pyyaml python <this-skill-dir>/scripts/<script>.py ...
-```
+## Running scripts
 
-## 0. Find the course folder
-
-Look for `course.yaml` in the current directory, then in `courses/*/course.yaml`. If several match, ask which course. If none exists, offer to create one from `examples/course-template/` in the plugin repo and fill `course.yaml` with the user from their syllabus/schedule — do not proceed without a schedule.
-
-Course folder layout (see `references/course-folder.md` for the schemas):
+Scripts live in `scripts/` next to this file and declare their own dependencies, so from any directory:
 
 ```
-course.yaml            schedule, session format, subject, optional Drive folder
+uv run <this-skill-dir>/scripts/<script>.py ...
+```
+
+Always use absolute paths for the skill dir, the course folder and the session folder. The working directory resets between shell calls, so never rely on `cd`.
+
+## 0. Check tools, find the course
+
+- Run `uv run <this-skill-dir>/scripts/doctor.py` once per run. If something is missing, tell the user once, with the fallback it prints (e.g. no TeX → math as Unicode text), and carry on.
+- Find `course.yaml` in the current directory, then in `courses/*/course.yaml`. If several match, ask which course. If none exists, offer to create one from `examples/course-template/` in the plugin repo and fill in `course.yaml` with the user from their syllabus. Don't proceed without a schedule.
+
+Course folder layout (schemas in `references/course-folder.md`):
+
+```
+course.yaml            schedule (weeks, and session dates with their numbers), format, subject, Drive
 template.pptx          the leader's slide template (optional)
-template-map.yaml      template slide → kind mapping (generated once, step 3)
-notes/  exams/  bank/  lecture notes, practice exams, question bank
-lessons.md             what past sessions taught (maintained by the session-feedback skill)
-sessions/YYYY-MM-DD/   one folder per session: plan.md, verify.py, verify.log, deck.yaml, math/,
+template-map.yaml      template slide → kind, colours, answer marks, slot layouts (made once, step 3)
+notes/  exams/         lecture notes, practice exams
+bank/<id>.yaml         question bank (same schema as questions.yaml)
+lessons.md             what past sessions taught (maintained by session-feedback)
+sessions/YYYY-MM-DD/   questions.yaml, plan.md, verify.py, verify.log, deck.yaml, math/, build.sh,
                        deck.generated.pptx (last build, written only by the skill),
-                       deck.pptx (the user's working copy), feedback.md
+                       deck.pptx (the user's working copy), feedback.md, render/
 ```
 
-Every run is kept in its session folder. Nothing in an older session folder is overwritten except its `feedback.md`.
+Every run stays in its session folder. Nothing in an older session folder is overwritten except its `feedback.md`.
 
 ## 1. Locate the session
 
-- Session date = the user's argument, else the next session date after today.
-- From `course.yaml` → `schedule`, take the week containing that date: its sections, goals, and whether an exam is near.
-- Read `lessons.md` **in full** and follow it. It is the leader's accumulated preferences and what worked with these students; it outranks the defaults in `references/`.
-- Read the **2–3 most recent** `sessions/*/feedback.md` and `plan.md` for recent detail (what students struggled with last time, what to revisit). If the latest past session has no post-session feedback yet, mention once that the `session-feedback` skill can log it.
-- Tell the user in one or two lines what you found ("Week 6: 2.2–2.3, inverses + IMT; last time T/F ran long") and continue unless something is off.
+```
+uv run <this-skill-dir>/scripts/new_session.py <course-dir> [--date YYYY-MM-DD]
+```
+
+This prints the week, sections, goals, the **session number** and any notes. It also creates the session folder with an empty `questions.yaml`, `feedback.md` and `build.sh`. It never overwrites anything.
+
+- The session number comes only from `course.yaml` (`schedule[].sessions`). If the output says it's missing or disagrees with `sessions/`, ask the leader **once** and record the answer in `course.yaml`. Never guess it.
+- Read `lessons.md` **in full** and follow it. It outranks the defaults in `references/`.
+- Read the **2–3 most recent** `sessions/*/feedback.md` and `plan.md`. If the latest past session has no post-session feedback yet, mention once that `session-feedback` can log it.
+- **Confidence:** `new_session.py` prints `latest_confidence` when the last session has tallies. If its end mean is ≤ 2.5 or the room was split, say so and propose a fix: a warm-up that revisits the topic for a low room, or a pairing activity (strong students with struggling ones) for a split room.
+- Tell the user in one or two lines what you found ("Session 10, week 5: 2.5 LU; last session ended split on row reduction") and continue unless something is off.
 
 ## 2. Sync materials (optional)
 
-If `course.yaml` has `drive_folder` and the Google Drive connector is available, list that folder and pull anything newer than the local copies (recent decks into `sessions/`, notes/exams into their folders). Skip silently if no connector. Never upload without asking.
+If `course.yaml` has `drive_folder` and the Google Drive connector is available, pull anything newer than the local copies. Skip silently if there's no connector. Never upload without asking.
 
 ## 3. Template
 
-- `template.pptx` present, `template-map.yaml` missing → run `scripts/inspect_template.py template.pptx --draft-map template-map.yaml`, read the dump, rename entries to kinds (`title`, `warmup`, `word-problem`, `tf`, `possible-impossible`, `closing`, ... whatever the template actually has), keep only the text fields that matter, set `math_area` where a slide has an empty box for math. Show the map to the user and get a one-time confirmation.
+- `template.pptx` present, `template-map.yaml` missing → run `inspect_template.py template.pptx --draft-map template-map.yaml --thumbs <session>/render/template`. The dump lists only shapes that matter, notes, tables, hidden slides and answer marks. The draft proposes kind names, answer `states:`, question/answer `pairs:`, and `slots:` (which kind each question slot uses, how many per slide, and which answer slide follows). Show the user the thumbnail grid and the map, and fix the names with them once. Add the template's accent colours under `colors:` so `{{orange|…}}` markup works.
 - Both present → use them. If the user says a template slide changed, re-inspect.
-- No template → plain fallback deck (build_deck.py without `--template`). Mention once that adding `template.pptx` improves results.
+- No template → the plain fallback deck. Mention once that adding `template.pptx` improves results.
 
 ## 4. Choose question sources
 
-Ask only if the user didn't say. Options (mix freely) — details in `references/question-sourcing.md`:
-- **bank** — `bank/*.md` filtered by the week's topics, skipping anything used in the last 3 sessions.
-- **exams as inspiration** — model style/difficulty on `exams/`, never copy verbatim.
-- **from scratch** — new problems built around "nice" matrices.
-- **web research** — search for problems/applications; cite sources in plan.md.
+Ask only if the user didn't say. Mix freely; details in `references/question-sourcing.md`:
+- **generated**: `generate.py <session> <name> --count N --difficulty D --set key=value`, for rref, inverse, eigen, span and lu. Built backwards from a nice answer and filtered on panchi's own steps. Ask for them by tag and difficulty ("2 rref, medium, one with a free variable").
+- **bank**: `bank.py find <course> --tags ... --slot ...` skips anything used in the last 3 sessions; `bank.py use <session> <id>` copies one in.
+- **exams as inspiration**: model style and difficulty on `exams/`, never copy verbatim. Before the plan says a topic is on past exams, confirm it with `search_exams.py "<topic>" --course <course-dir>`.
+- **from scratch** and **web research**: cite URLs in `source:`.
 
-## 5. Draft `plan.md` — checkpoint
+## 5. Draft `questions.yaml`
 
-Follow the session structure in `course.yaml` (defaults in `references/session-structure.md`: warm-up → ~40 min main block of word problems, T/F and possible/impossible → challenging closing activity such as completing a proof). The format is collaborative: students reach conclusions themselves; questions should provoke reasoning, not re-lecture.
+Schema and slot rules in `references/questions.md`. Follow the session structure in `course.yaml` (defaults in `references/session-structure.md`). The format is collaborative: questions should make students reason, not re-lecture.
 
-plan.md contains: timeline with minutes, every question with its **answer and justification**, the slide kind each will use, and what the feedback from past sessions changed. Think critically: if the week's topics, the requested structure, or a user instruction would make a weak session, say so and propose better — don't just comply.
-
-**Stop and let the user review plan.md.** Apply their edits before continuing, and log them (step 9).
+Think critically: if the week's topics, the requested structure, or a user instruction would make a weak session, say so and propose something better. Don't just comply.
 
 ## 6. Verify — nothing ships unverified
 
-Write `sessions/<date>/verify.py` per `references/verification.md` and run:
-
 ```
-uv run --with panchi python <this-skill-dir>/scripts/verify_runner.py sessions/<date>/verify.py
-```
-
-Every numeric answer and every T/F / possible-impossible claim gets a check (an exact computation, a witness, or a counterexample). On any FAIL: fix the question or the answer in plan.md, rerun, and tell the user what was wrong. Subjects without an engine yet: verify with sympy and say so.
-
-## 7. Render math
-
-For each matrix/derivation shown on a slide, get LaTeX from panchi (`_repr_latex_()` on Matrix, Vector, and result objects from `rref`, `inverse`, `solve`, `eigen`, `qr_decomposition`) or write it by hand, then:
-
-```
-uv run --with panchi python <this-skill-dir>/scripts/render_math.py sessions/<date>/math/q3.png --file - <<'EOF'
-<latex>
-EOF
+uv run <this-skill-dir>/scripts/render_questions.py <session>        # plan.md sections, verify.py stubs, deck.yaml
+uv run <this-skill-dir>/scripts/verify_runner.py <session>           # writes verify.log
 ```
 
-Row labels are shifted to 1-based (R_1...) automatically. Plots of 2D/3D transformations: `panchi.visualizations.Animator2D/3D` with `save_path`. See `references/slide-building.md` for sizing rules.
+`render_questions.py` adds a failing `todo("<id>")` stub to `verify.py` for every hand-written question. Replace each stub with a real check (`references/verification.md`). Generated questions are checked by their generator. The runner **fails** if any check fails, any question has no check, a label names an unknown ID, or a stub is left. Fix every FAIL, in the question or its answer, and rerun. Tell the user what was wrong.
 
-## 8. Build the deck
+## 7. Checkpoint — show `plan.md`
 
-Write `sessions/<date>/deck.yaml` (schema in `scripts/build_deck.py` docstring) and run:
+`plan.md` has your hand-written part at the top: goals, how lessons, feedback and confidence shaped the session, and anything you pushed back on. It also has the generated **Timeline** and **Questions** sections between `boared` markers. Timeline warnings (total ≠ session length ± 5 min) must be resolved or explained.
+
+Show it marked **"all answers verified"** with a link to `verify.log`. Only do this when the runner passed. **Stop and let the user review.** Log every change they ask for in `feedback.md` → Prep review.
+
+## 8. Apply edits, re-verify, build
+
+Apply edits in `questions.yaml` (or `verify.py`), then:
 
 ```
-uv run --with panchi --with python-pptx --with pyyaml python <this-skill-dir>/scripts/build_deck.py \
-  sessions/<date>/deck.yaml --template template.pptx --map template-map.yaml -o sessions/<date>/deck.pptx
+bash <session>/build.sh
 ```
 
-Only copy template slides and replace text — never invent layouts, colors, or fonts. Put answers in speaker `notes`, not on the slide. If a build error names a shape, re-check the map rather than guessing.
+This script was generated with absolute paths. It runs verify → `render_questions.py --only deck` → `build_deck.py` → copies `deck.generated.pptx` → `validate_deck.py` → `render.py`. It stops at the first failure. It refuses to overwrite hand edits in `deck.pptx` unless run with `FORCE=1`; **ask** before forcing. The validator fails if `verify.log` is stale or failed, if `[placeholder]` text is left, if hidden flags are wrong, or if template slides or orphan media remain. Rules for slides and markup are in `references/slide-building.md`. If a build error names a shape, fix the map, don't guess.
+
+If the build warns that text may overflow, shorten the text or give the field a `box`/`font_size` override in `template-map.yaml` slots or `deck.yaml`.
 
 ## 9. Deliver
 
-- Copy `deck.pptx` to `deck.generated.pptx` after every build. Only the skill writes that copy, and the user edits `deck.pptx` freely. The `session-feedback` skill diffs the two to see what the user changed by hand. Save the verify_runner output to `verify.log`.
-- `open sessions/<date>/deck.pptx` so the user can look it over; summarise in a few lines (questions, what was verified, anything you pushed back on).
-- If `drive_folder` is set, **ask** before uploading the deck there.
-- Write `sessions/<date>/feedback.md` from the template in `references/course-folder.md`, filling the **Prep review** section now: every change the user asked for at the plan checkpoint and after seeing the deck, in their words where possible, plus anything you pushed back on and how it resolved. These are the most direct signal of their preferences. If they ask for more changes later in the conversation, append them, rebuild, and refresh `deck.generated.pptx`. If `deck.pptx` has hand edits newer than `deck.generated.pptx`, ask before rebuilding over them.
-- If bank questions were used, update their `last_used`. Offer to add new verified questions to `bank/`.
+- Look at `render/slide-*.png` if the render step produced them. Then `open <session>/deck.pptx` (macOS; otherwise tell the user the path) and summarise in a few lines: questions, what was verified, anything you pushed back on.
+- Fill the **Prep review** section of `feedback.md`: every change the user asked for at the checkpoint and after seeing the deck, in their words where possible, plus pushback and how it resolved. If they ask for more changes later, append them and rebuild.
+- Drive: run `deliver.py <session>/deck.pptx --course <course-dir> --options` and offer the routes it lists, best first. **Ask before doing any of them.**
+- Offer to promote new verified questions: `bank.py add <session> [--ids ...]`. It only marks them verified if `verify.log` passed and is current.
