@@ -1,9 +1,9 @@
 {
-  "name": "boardwork",
+  "name": "boared",
   "owner": { "name": "Gustavo Galvao e Silva" },
   "plugins": [
     {
-      "name": "boardwork",
+      "name": "boared",
       "source": "./",
       "description": "Prep math study sessions with verified questions and template-based .pptx decks."
     }

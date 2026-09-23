@@ -1,5 +1,5 @@
 [project]
-name = "boardwork"
+name = "boared"
 version = "0.1.0"
 description = "Claude Code skills for building verified math study-session materials"
 readme = "README.md"

@@ -1,4 +1,4 @@
-# boardwork
+# boared
 
 Claude Code skills for prepping math study sessions — PLUS, Supplemental Instruction, recitations — with **verified** questions and slides built from **your own template**.
 
@@ -21,8 +21,8 @@ v1 covers linear algebra. Other subjects can verify with sympy; dedicated engine
 As a plugin, from inside Claude Code:
 
 ```
-/plugin marketplace add Gustavo-Galvao-e-Silva/boardwork
-/plugin install boardwork@boardwork
+/plugin marketplace add Gustavo-Galvao-e-Silva/boared
+/plugin install boared@boared
 ```
 
 Or copy `skills/session-prep/` into `~/.claude/skills/`.
