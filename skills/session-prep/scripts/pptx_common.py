@@ -18,11 +18,7 @@ def iter_shapes(shapes) -> Iterator[BaseShape]:
 
 def find_shape(slide, ref: str | int) -> BaseShape:
     """Find a shape by name (str) or shape id (int). Raises KeyError if absent or ambiguous."""
-    matches = [
-        s
-        for s in iter_shapes(slide.shapes)
-        if (s.shape_id == ref if isinstance(ref, int) else s.name == ref)
-    ]
+    matches = [s for s in iter_shapes(slide.shapes) if (s.shape_id == ref if isinstance(ref, int) else s.name == ref)]
     if not matches:
         available = ", ".join(f"{s.name!r} (id {s.shape_id})" for s in iter_shapes(slide.shapes))
         raise KeyError(f"No shape {ref!r} on slide. Available: {available}")

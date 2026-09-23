@@ -1,3 +1,7 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["panchi>=2.0.0", "python-pptx>=1.0", "pyyaml>=6.0", "pydantic>=2.0", "sympy>=1.12", "pillow>=10"]
+# ///
 """Render LaTeX math to a transparent PNG for pasting into slides.
 
 Uses the local TeX install (latex + dvipng) so anything amsmath supports —
