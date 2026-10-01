@@ -76,6 +76,8 @@ Ask only if the user didn't say. Mix freely; details in `references/question-sou
 
 Schema and slot rules in `references/questions.md`. Follow the session structure in `course.yaml` (defaults in `references/session-structure.md`). The format is collaborative: questions should make students reason, not re-lecture.
 
+Every question needs `section`, `uses`, `tags`, `answer`, a real `justification`, `difficulty`, `minutes` and `source`. Topics are the labels in `course.yaml`'s schedule. **Before writing each question, list the topics it and its justification rely on, and put all of them in `uses`.** A correct answer that needs a tool students haven't seen yet is still a bad question. A deliberate preview gets `preview: true`, and you flag it for the leader.
+
 Think critically: if the week's topics, the requested structure, or a user instruction would make a weak session, say so and propose something better. Don't just comply.
 
 ## 6. Verify — nothing ships unverified
@@ -85,7 +87,7 @@ uv run <this-skill-dir>/scripts/render_questions.py <session>        # plan.md s
 uv run <this-skill-dir>/scripts/verify_runner.py <session>           # writes verify.log
 ```
 
-`render_questions.py` adds a failing `todo("<id>")` stub to `verify.py` for every hand-written question. Replace each stub with a real check (`references/verification.md`). Generated questions are checked by their generator. The runner **fails** if any check fails, any question has no check, a label names an unknown ID, or a stub is left. Fix every FAIL, in the question or its answer, and rerun. Tell the user what was wrong.
+`render_questions.py` adds a failing `todo("<id>")` stub to `verify.py` for every hand-written question. Replace each stub with a real check (`references/verification.md`). Generated questions are checked by their generator. The runner **fails** if any check fails, any question has no check, a label names an unknown ID, or a stub is left. It also fails if a question relies on a topic taught after the session (`SCHEDULE:` lines). Rewrite those by default, and tell the user the item, the topic and the date it is taught. `PREVIEW:` lines are approved previews: list them in the plan's hand-written part. Fix every FAIL, in the question or its answer, and rerun. Tell the user what was wrong.
 
 ## 7. Checkpoint — show `plan.md`
 

@@ -54,8 +54,18 @@ def _date(session: Path) -> dt.date | None:
         return None
 
 
-def load_bank(course: Path) -> dict[str, BankEntry]:
-    return {p.stem: load_bank_entry(p) for p in sorted((course / "bank").glob("*.yaml"))}
+def load_bank(course: Path, problems: list[str] | None = None) -> dict[str, BankEntry]:
+    """Every valid bank entry. Invalid ones are skipped and described in `problems` (if given),
+    so one entry missing a required field doesn't hide the rest of the bank."""
+    entries = {}
+    for p in sorted((course / "bank").glob("*.yaml")):
+        try:
+            entries[p.stem] = load_bank_entry(p)
+        except SchemaError as e:
+            if problems is None:
+                raise
+            problems.append(str(e))
+    return entries
 
 
 def add(session: Path, ids: list[str] | None) -> list[str]:
@@ -88,11 +98,13 @@ def add(session: Path, ids: list[str] | None) -> list[str]:
     return done
 
 
-def find(course: Path, tags: list[str], slot: str | None, before: dt.date, skip_recent: int) -> list[BankEntry]:
+def find(
+    course: Path, tags: list[str], slot: str | None, before: dt.date, skip_recent: int, problems: list[str] | None = None
+) -> list[BankEntry]:
     sessions = sorted(p.name for p in (course / "sessions").glob("20*-*-*") if p.name < before.isoformat())
     recent = set(sessions[-skip_recent:]) if skip_recent else set()
     out = []
-    for entry in load_bank(course).values():
+    for entry in load_bank(course, problems).values():
         if slot and entry.slot != slot:
             continue
         if tags and not set(tags) & set(entry.tags):
@@ -148,7 +160,10 @@ def main() -> None:
                 print(line)
         elif args.cmd == "find":
             tags = [t.strip() for t in args.tags.split(",") if t.strip()]
-            entries = find(args.course.resolve(), tags, args.slot, args.before, args.skip_recent)
+            problems: list[str] = []
+            entries = find(args.course.resolve(), tags, args.slot, args.before, args.skip_recent, problems)
+            for problem in problems:
+                print(f"skipped (run migrate_bank.py --fill-required): {problem}", file=sys.stderr)
             for e in entries:
                 flag = "verified" if e.verified else "UNVERIFIED"
                 print(f"{e.id:<24} {e.slot:<8} {e.difficulty:<7} {flag:<10} used {e.times_used}×, last {e.last_used or '-'}")

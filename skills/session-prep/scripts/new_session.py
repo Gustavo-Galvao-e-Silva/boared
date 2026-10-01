@@ -128,7 +128,8 @@ def setup(course_dir: Path, date: dt.date | None, today: dt.date | None = None) 
 
     info: dict = {"date": date.isoformat(), "session_number": number, "notes": []}
     if week:
-        info |= {"week": week.week, "sections": week.sections, "goals": week.goals, "week_notes": week.notes}
+        sections, goals = course.sections_for(date)
+        info |= {"week": week.week, "sections": sections, "goals": goals, "week_notes": week.notes}
     else:
         info["notes"].append(f"{date} is before the first week in course.yaml's schedule")
     if number is None:
@@ -136,7 +137,7 @@ def setup(course_dir: Path, date: dt.date | None, today: dt.date | None = None) 
             f"course.yaml has no session number for {date}; ask the leader and add it under that week's `sessions:`"
         )
     else:
-        numbered = {s.date.isoformat(): s.number for w in course.schedule for s in w.sessions}
+        numbered = {s.date.isoformat(): s.number for w in course.schedule for s in w.sessions if s.number is not None}
         prev = [numbered[e] for e in earlier if e in numbered]
         if prev and max(prev) >= number:
             info["notes"].append(

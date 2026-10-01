@@ -21,19 +21,27 @@ TF = [
     {
         "id": "tf1",
         "slot": "tf",
+        "section": "2.5",
+        "uses": ["2.5"],
         "tags": ["lu", "inverses"],
         "statement": "If A is invertible and A = LU, then A⁻¹ = L⁻¹U⁻¹.",
         "answer": False,
         "justification": "The order reverses: A⁻¹ = U⁻¹L⁻¹.",
+        "source": "from scratch",
+        "difficulty": "medium",
         "minutes": 2.5,
     },
     {
         "id": "tf2",
         "slot": "tf",
+        "section": "2.5",
+        "uses": ["2.5"],
         "tags": ["lu"],
         "statement": "If A = LU with L unit lower triangular, det A = product of the diagonal of U.",
         "answer": True,
         "justification": "det L = 1.",
+        "source": "from scratch",
+        "difficulty": "easy",
         "minutes": 2.5,
     },
 ]
@@ -177,12 +185,136 @@ def test_mcq_answer_slide(course, session):
     q = {
         "id": "w1",
         "slot": "warmup",
+        "section": "2.5",
+        "uses": ["2.5"],
+        "tags": ["lu"],
         "statement": "Which are triangular?",
         "choices": {"A": "L", "B": "U", "C": "A", "D": "P"},
         "answer": ["A", "B"],
+        "justification": "L is lower, U is upper triangular.",
+        "source": "from scratch",
+        "difficulty": "easy",
+        "minutes": 2,
     }
     (folder / "questions.yaml").write_text(yaml.safe_dump([q]))
     render_questions.render_all(folder, {"deck"})
     deck = yaml.safe_load((folder / "deck.yaml").read_text())["slides"]
     assert deck[-1]["states"] == {"choice": {"on": ["A", "B"]}}
     assert "(A) L" in deck[-2]["text"]["body"]
+
+
+# --- schedule check: is each question teachable yet? ---------------------------------
+
+
+def _add_later_topic(course, prerequisites=None):
+    data = yaml.safe_load((course / "course.yaml").read_text())
+    data["schedule"].append(
+        {
+            "week": 6,
+            "start": "2026-09-28",
+            "sections": ["Determinants", "Cofactor expansion"],
+            "sessions": [{"date": "2026-10-01", "number": 11, "sections": ["Cofactor expansion"]}],
+        }
+    )
+    if prerequisites:
+        data["prerequisites"] = prerequisites
+    (course / "course.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+
+
+def _write_checked(folder, questions):
+    (folder / "questions.yaml").write_text(yaml.safe_dump(questions, allow_unicode=True))
+    (folder / "verify.py").write_text(
+        "from verify_kit import check_true\n" + "".join(f"check_true('{q['id']} ok', True)\n" for q in questions)
+    )
+
+
+def test_schedule_fails_a_topic_taught_later(course, session):
+    folder, _ = session
+    _add_later_topic(course)
+    early = dict(TF[1], uses=["2.5", "Determinants"])
+    _write_checked(folder, [TF[0], early])
+    lines, passed = verify_runner.run(folder / "verify.py", folder / "questions.yaml")
+    report = "\n".join(lines)
+    assert not passed
+    assert "SCHEDULE: tf2 uses 'Determinants', first taught 2026-09-28" in report
+    assert "SCHEDULE: tf1" not in report
+
+    # a deliberate preview is a warning the leader approves in plan.md
+    _write_checked(folder, [TF[0], dict(early, preview=True)])
+    lines, passed = verify_runner.run(folder / "verify.py", folder / "questions.yaml")
+    assert passed and any(line.startswith("PREVIEW: tf2 uses 'Determinants'") for line in lines)
+    render_questions.render_all(folder, {"plan"})
+    assert "Preview — needs the leader's OK:** uses 'Determinants'" in (folder / "plan.md").read_text()
+
+
+def test_schedule_uses_session_dates_and_labels(course):
+    from schemas import load_course
+
+    _add_later_topic(course)
+    c = load_course(course / "course.yaml")
+    assert c.taught_on("Determinants") == dt.date(2026, 9, 28)  # week start
+    assert c.taught_on("cofactor expansion") == dt.date(2026, 10, 1)  # the session that lists it, any case
+    assert c.resolve_label("2.5") == "2.5 Matrix factorizations"  # an unambiguous prefix
+    assert c.resolve_label("2") is None and c.resolve_label("Eigenvalues") is None
+
+
+def test_schedule_unknown_topic_and_keyword_backstop(course, session):
+    folder, _ = session
+    _add_later_topic(course, prerequisites={"Determinants": ["det(", "determinant"]})
+    _write_checked(folder, [dict(TF[0], uses=["2.5", "Eigenvalues"]), TF[1]])
+    lines, passed = verify_runner.run(folder / "verify.py", folder / "questions.yaml")
+    report = "\n".join(lines)
+    assert not passed
+    assert "SCHEDULE: tf1 uses 'Eigenvalues', which is not one topic" in report
+    assert "SCHEDULE: tf2" not in report  # "det A" / "det L" are not the listed keywords
+    _write_checked(folder, [dict(TF[0], uses=["2.5", "Eigenvalues"], preview=True)])
+    lines, passed = verify_runner.run(folder / "verify.py", folder / "questions.yaml")
+    assert not passed  # preview can't excuse an unknown topic
+    _write_checked(folder, [TF[0], dict(TF[1], justification="The determinant of L is 1.")])
+    lines, passed = verify_runner.run(folder / "verify.py", folder / "questions.yaml")
+    assert not passed and "tf2 mentions 'determinant', which belongs to 'Determinants'" in "\n".join(lines)
+
+
+def test_required_fields(tmp_path):
+    for field in ("section", "uses", "tags", "answer", "justification", "source", "difficulty", "minutes"):
+        q = {k: v for k, v in TF[0].items() if k != field}
+        (tmp_path / "questions.yaml").write_text(yaml.safe_dump([q], allow_unicode=True))
+        with pytest.raises(SchemaError, match=f"tf1: {field}: Field required"):
+            load_questions(tmp_path / "questions.yaml")
+    for field, empty in (("tags", []), ("uses", []), ("justification", " ")):
+        (tmp_path / "questions.yaml").write_text(yaml.safe_dump([dict(TF[0], **{field: empty})], allow_unicode=True))
+        with pytest.raises(SchemaError, match=f"tf1: {field}:"):
+            load_questions(tmp_path / "questions.yaml")
+    (tmp_path / "questions.yaml").write_text(yaml.safe_dump([dict(TF[0], uses=["other"])], allow_unicode=True))
+    assert load_questions(tmp_path / "questions.yaml")[0].uses == ["2.5", "other"]  # section counts as used
+
+
+def test_generate_needs_a_section_when_the_session_has_several(course):
+    _add_later_topic(course)
+    folder = course / "sessions" / "2026-09-29"  # week 6 lists two topics, no session entry
+    folder.mkdir()
+    with pytest.raises(SchemaError, match="give --section"):
+        generate.add(folder, "lu", 1, "easy", {})
+    (q,) = generate.add(folder, "lu", 1, "easy", {}, section="Determinants")
+    assert q["section"] == "Determinants" and q["uses"] == ["Determinants"]
+
+
+def test_fill_required_migration(course):
+    import migrate_bank
+
+    folder = course / "sessions" / "2026-09-24"
+    folder.mkdir()
+    old = {"id": "tf1", "slot": "tf", "tags": ["lu"], "statement": "S.", "answer": False, "justification": "J."}
+    (folder / "questions.yaml").write_text(yaml.safe_dump([old, {"id": "tf2", "slot": "tf", "statement": "T.", "answer": True}]))
+    (course / "bank").mkdir()
+    (course / "bank" / "b1.yaml").write_text(yaml.safe_dump(dict(old, id="b1", verified=True)))  # no last_used
+
+    done, todo = migrate_bank.fill_required(course, dry_run=True)
+    assert "sessions/2026-09-24/questions.yaml: tf1: filled difficulty, minutes, source, uses, section" in done
+    assert yaml.safe_load((folder / "questions.yaml").read_text())[0] == old  # dry run writes nothing
+
+    done, todo = migrate_bank.fill_required(course)
+    (tf1, *_rest) = yaml.safe_load((folder / "questions.yaml").read_text())
+    assert tf1["section"] == "2.5 Matrix factorizations" and list(tf1)[:4] == ["id", "slot", "section", "uses"]
+    assert any("tf2: write justification, tags" in t for t in todo)
+    assert any("bank/b1.yaml: b1: write section, uses (no scheduled topic for its date)" in t for t in todo)

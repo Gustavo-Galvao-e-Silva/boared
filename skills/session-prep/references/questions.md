@@ -7,7 +7,9 @@ Validated by `scripts/schemas.py`. Errors name the question, e.g. `tf4: answer m
 ```yaml
 - id: tf4                        # lowercase letters, digits, - or _; unique in the file
   slot: tf                       # warmup | tf | pi | problem | proof
-  tags: [lu, inverses]           # skill tags; a generator's name is added automatically
+  section: "2.5"                 # the topic it practises: a course.yaml `sections` label (or unambiguous prefix)
+  uses: ["2.5", "2.2"]           # every topic the question AND its justification rely on (section is added)
+  tags: [lu, inverses]           # skill tags, at least one; a generator's name is added automatically
   statement: "If A is invertible and A = LU, then **A⁻¹ = L⁻¹U⁻¹**."
   answer: false
   justification: "The order reverses: A⁻¹ = U⁻¹L⁻¹."
@@ -18,12 +20,27 @@ Validated by `scripts/schemas.py`. Errors name the question, e.g. `tf4: answer m
 
 - id: w1
   slot: warmup
+  section: "2.5"
+  uses: ["2.5"]
+  tags: [lu]
   statement: "Which of these are triangular?"
   choices: {A: "L", B: "U", C: "A", D: "P"}   # multiple choice: answer is one letter or a list
   answer: [A, B]
+  justification: "L is lower triangular, U upper; A and P in general are neither."
+  source: from scratch
+  difficulty: easy
+  minutes: 2
+
+- id: lam1
+  slot: proof
+  section: "2.5"
+  uses: ["2.5", "5.1"]           # 5.1 is taught next week...
+  preview: true                  # ...on purpose: verify_runner warns instead of failing, plan.md asks the leader
+  # (other required fields as above)
 
 - id: lu1                        # written by generate.py; don't hand-edit the generator block
   slot: problem
+  section: "2.5"                 # generate.py: the session's topic, or --section / --uses
   statement: "Find an LU factorization of A, or explain why none exists without row swaps."
   latex: 'A = \begin{bmatrix} 0 & 2 \\ 1 & 3 \end{bmatrix}'   # rendered to math/lu1.png for the slide
   data: {matrix: [[0, 2], [1, 3]]}   # what the checks recompute from
@@ -42,6 +59,8 @@ Validated by `scripts/schemas.py`. Errors name the question, e.g. `tf4: answer m
 
 ## Rules
 
+- **Every field above is required** except `choices`, `image`/`latex`, `data`, `generator`, `notes` and `preview`. A missing one is an error naming the question.
+- **Teachable yet?** `verify_runner.py` fails a question when a topic in `uses` is first taught after the session date, when a `uses` label matches no topic in the schedule, or when its statement, justification, answer or notes contain a word that `course.yaml` `prerequisites:` ties to a later topic. Before writing a question, list the concepts it and its justification need. The usual miss is a slick justification that leans on a later tool. When the check fails, rewrite the question by default; in the plan, name the item, the topic and the date it is taught. Use `preview: true` only for a deliberate preview, and the leader approves it in `plan.md`.
 - **IDs are permanent within a session.** Reordering questions is fine; renaming an ID means renaming its checks too (the runner flags orphans).
 - Statements use the deck markup: `**bold**` and `{{colour|text}}`, with colours from `template-map.yaml`. Short math as Unicode (A⁻¹, ℝ³); matrices go in `latex:` or a prepared `image:`.
 - `minutes` drives the Timeline. The total must be within 5 minutes of `session.length_min`.

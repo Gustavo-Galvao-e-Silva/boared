@@ -38,6 +38,7 @@ from schemas import (  # noqa: E402
     SlotLayout,
     TemplateMap,
     dump_yaml,
+    find_course_dir,
     load_course,
     load_questions,
     load_template_map,
@@ -51,13 +52,6 @@ SLOT_TITLES = {
     "proof": "Closing",
 }
 START, END = "<!-- boared:{name}:start -->", "<!-- boared:{name}:end -->"
-
-
-def find_course_dir(session: Path) -> Path | None:
-    for d in [session, *session.parents]:
-        if (d / "course.yaml").exists():
-            return d
-    return None
 
 
 # --- plan.md ----------------------------------------------------------------------
@@ -92,11 +86,15 @@ def timeline(questions: list[Question], length: int | None) -> tuple[str, str | 
     return "\n".join(rows), warning
 
 
-def questions_md(questions: list[Question]) -> str:
+def questions_md(questions: list[Question], previews: dict[str, list[str]] | None = None) -> str:
     out = []
+    previews = previews or {}
     for q in questions:
         out.append(f"### {q.id} · {SLOT_TITLES[q.slot]} · {q.difficulty} · {q.minutes:g} min")
         out.append("")
+        if q.id in previews:
+            out.append(f"> **Preview — needs the leader's OK:** {'; '.join(previews[q.id])}.")
+            out.append("")
         out.append(q.statement.strip())
         if q.choices:
             out += [f"- ({k}) {v}" for k, v in q.choices.items()]
@@ -106,7 +104,7 @@ def questions_md(questions: list[Question]) -> str:
         out.append(f"**Answer:** {_fmt_answer(q)}  ")
         if q.justification:
             out.append(f"**Why:** {q.justification}  ")
-        out.append(f"*Source: {q.source}{' · tags: ' + ', '.join(q.tags) if q.tags else ''}*")
+        out.append(f"*Source: {q.source} · uses: {', '.join(q.uses)} · tags: {', '.join(q.tags)}*")
         out.append("")
     return "\n".join(out).rstrip()
 
@@ -120,12 +118,19 @@ def replace_section(text: str, name: str, heading: str, body: str) -> str:
     return text.rstrip() + f"\n\n## {heading}\n\n{block}\n"
 
 
-def write_plan(session: Path, questions: list[Question], length: int | None) -> list[str]:
+def write_plan(session: Path, questions: list[Question], length: int | None, course=None, date=None) -> list[str]:
     plan = session / "plan.md"
     text = plan.read_text() if plan.exists() else f"# Plan — {session.name}\n"
     tl, warning = timeline(questions, length)
+    previews = {}
+    if course is not None and date is not None:
+        from verify_runner import schedule_check
+
+        previews = {
+            k: v for k, v in schedule_check(questions, course, date).items() if k in {q.id for q in questions if q.preview}
+        }
     text = replace_section(text, "timeline", "Timeline", tl)
-    text = replace_section(text, "questions", "Questions", questions_md(questions))
+    text = replace_section(text, "questions", "Questions", questions_md(questions, previews))
     plan.write_text(text)
     return [warning] if warning else []
 
@@ -236,8 +241,7 @@ def deck_slides(
 
     if "title" in kinds and course is not None:
         number = course.session_number(date) if date else None
-        week = course.week_for(date) if date else None
-        subtitle = ", ".join(week.sections) if week else ""
+        subtitle = ", ".join(course.sections_for(date)[0]) if date else ""
         title = f"Session {number}" if number else course.course
         fields = {"title": title, "subtitle": subtitle}
         slides.append({"kind": "title", "text": {k: v for k, v in fields.items() if k in kinds["title"].fields}})
@@ -336,7 +340,7 @@ def render_all(session: Path, only: set[str] | None = None, render_math: bool = 
     notes: list[str] = []
     only = only or {"plan", "verify", "deck"}
     if "plan" in only:
-        notes += write_plan(session, questions, course.session.length_min if course else None)
+        notes += write_plan(session, questions, course.session.length_min if course else None, course, date)
     if "verify" in only:
         notes += write_verify(session, questions)
     if "deck" in only:
