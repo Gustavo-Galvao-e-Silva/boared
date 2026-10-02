@@ -14,6 +14,11 @@ session:
   structure: default           # or a custom list of blocks, see session-structure.md
 drive_folder: ""               # optional Google Drive folder URL/id (for "reveal" delivery and syncing)
 drive_local: ""                # optional local path of that folder, synced by Drive for desktop ("copy" delivery)
+final_exam: ""                 # optional, free text
+exams:                         # optional: [{name, date}]
+  - {name: Midterm 2, date: 2026-10-01}
+prerequisites:                 # optional: topic → words that give it away (the schedule check's backstop)
+  "Determinants": ["det(", "determinant"]
 schedule:
   - week: 5
     start: 2026-09-21          # Monday of the week
@@ -22,8 +27,10 @@ schedule:
     notes: "Midterm 2 next week"
     sessions:                  # the session number shown on slides. Never inferred
       - {date: 2026-09-22, number: 9}
-      - {date: 2026-09-24, number: 10}
+      - {date: 2026-09-24, number: 10, sections: ["2.5 Matrix factorizations"], goals: [...]}  # optional per-session topics
 ```
+
+**Topics.** The strings under `sections:` (week or session) are the course's topic labels, in whatever form the course uses: "2.5 Matrix factorizations", "Determinants", "Week 3: recursion". boared never parses them. A topic is first taught on the earliest session that lists it, or else at the start of the earliest week that lists it. Questions name topics in `section:`/`uses:` with the full label or an unambiguous prefix ("2.5"). `verify_runner.py` fails a question that relies on a topic taught after its session. `prerequisites:` lives here, never in the skill, because the words that give a topic away are specific to the course.
 
 The session number is always read from `sessions:`. If a date is missing, or the numbers disagree with the folders in `sessions/`, the skill asks once and writes the answer here.
 
@@ -38,18 +45,23 @@ The same schema as a `questions.yaml` entry, plus bank bookkeeping. Reusing a ba
 ```yaml
 id: tf-cancellation
 slot: tf
+section: 2.1 Matrix operations
+uses: [2.1 Matrix operations, 2.2 The inverse of a matrix]
 tags: [matrix-multiplication, inverses]
 statement: "If AB = AC and A ≠ 0, then B = C."
 answer: false
 justification: "A = [[1,0],[0,0]], B = I, C = [[1,0],[0,2]] gives AB = AC with B ≠ C. True if A is invertible."
 source: from scratch
 difficulty: medium
+minutes: 2
 verified: true                  # set by `bank.py add` only when the session's verify.log passed and was current
 last_used: 2026-09-23
 times_used: 1
 ```
 
 An old Markdown bank (`bank/*.md` with front matter) is converted once with `scripts/migrate_bank.py <course-dir>`.
+
+**Upgrading from 0.2.** `section`, `uses`, `tags`, `answer`, `justification`, `difficulty`, `minutes` and `source` are now required. Run `scripts/migrate_bank.py <course-dir> --fill-required --dry-run`, then without `--dry-run`. It fills the defaults 0.2 used and takes `uses`/`section` from the schedule. It lists every field it can't fill honestly (usually justifications, and `section` when a session had several topics) for you to write. Until then, `bank.py find` skips the incomplete entries and says so.
 
 ## template-map.yaml
 

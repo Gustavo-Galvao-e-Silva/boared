@@ -11,6 +11,8 @@ import generators
 import verify_kit
 from schemas import Question
 
+TOPIC = {"section": "any topic", "uses": ["any topic"]}  # generators don't know the course's topics
+
 SEEDS = int(os.environ.get("BOARED_SEEDS", "1000"))
 
 CASES = [
@@ -40,7 +42,7 @@ SLOW = {"eigen": 10}
 def test_accepted_candidates_pass_their_checks(name, difficulty, params):
     for i in range(SEEDS // SLOW.get(name, 1)):
         seed = f"test-{name}-{i}"
-        q = Question.model_validate(generators.make_question(name, seed, difficulty, f"{name}{i}", **params))
+        q = Question.model_validate(TOPIC | generators.make_question(name, seed, difficulty, f"{name}{i}", **params))
         c = generators.make_candidate(name, seed, difficulty, **params)
         assert generators.module(name).validate(c) == [], seed
         verify_kit.RESULTS.clear()
@@ -61,7 +63,7 @@ def test_checks_catch_a_hand_edited_answer():
     q = generators.make_question("inverse", "s", "medium", "inv1")
     q["answer"]["inverse"][0][0] += 1
     verify_kit.RESULTS.clear()
-    generators.run_checks(Question.model_validate(q))
+    generators.run_checks(Question.model_validate(TOPIC | q))
     assert any(r.label == "inv1 inverse" and not r.ok for r in verify_kit.RESULTS)
 
 

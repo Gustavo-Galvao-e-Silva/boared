@@ -2,6 +2,20 @@
 
 All notable changes to boared. Versions follow `.claude-plugin/plugin.json`. Bump it with every change.
 
+## 0.3.0 — 2026-10-01
+
+### Questions must be teachable on the day
+- Every question needs `section`, `uses`, `tags`, `answer`, a non-empty `justification`, `difficulty`, `minutes` and `source`. There are no defaults, and an error names the question and the field.
+- `verify_runner.py` runs a schedule check. A question fails when a topic in `uses` is first taught after the session, when a `uses` label isn't in the schedule, or when its text contains a word that `course.yaml` `prerequisites:` ties to a later topic. `preview: true` turns a too-early topic into a `PREVIEW:` warning, and `plan.md` asks the leader to approve it.
+- Topics are the course's own `sections` labels (full label or an unambiguous prefix). boared ships no topic or keyword map: `prerequisites:` lives in each course's `course.yaml`.
+- `generate.py` fills `section`/`uses` from the session's topic, or from `--section`/`--uses`.
+- `migrate_bank.py --fill-required` upgrades a course's bank and session files. It fills honest defaults and takes `uses` from the schedule, and lists whatever it can't fill. `bank.py find` skips incomplete entries with a warning.
+- session-feedback proposes a `prerequisites:` entry when feedback says students hadn't learned something yet.
+
+### Course schema (upstreams the local patch 0001)
+- `schedule[].sessions[]`: `number` is optional (the leader is asked), plus `day`, `sections` and `goals` per session. Added `Course.session_for(date)` and `Course.sections_for(date)`, where a session's own topics override its week's.
+- `final_exam` (free text) and `exams: [{name, date}]`.
+
 ## 0.2.0 — 2026-09-23
 
 Changes from the first full run (MATH 1554, week 5, §2.5 LU).

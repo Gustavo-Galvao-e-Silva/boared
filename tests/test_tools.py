@@ -63,7 +63,19 @@ def test_confidence_history_from_feedback(course):
 def _session_with_questions(course, date="2026-09-24"):
     folder = course / "sessions" / date
     folder.mkdir(parents=True, exist_ok=True)
-    q = {"id": "tf1", "slot": "tf", "tags": ["lu"], "statement": "Every square matrix has an LU factorization.", "answer": False}
+    q = {
+        "id": "tf1",
+        "slot": "tf",
+        "tags": ["lu"],
+        "statement": "Every square matrix has an LU factorization.",
+        "answer": False,
+        "section": "2.5",
+        "uses": ["2.5"],
+        "justification": "Needs a swap.",
+        "source": "from scratch",
+        "difficulty": "easy",
+        "minutes": 2,
+    }
     (folder / "questions.yaml").write_text(yaml.safe_dump([q]))
     (folder / "verify.py").write_text(
         "import panchi as pan\nfrom verify_kit import check_true, lu_no_pivot, NoLU\n"
@@ -104,7 +116,23 @@ def test_bank_id_clash_gets_date(course):
     bank.add(folder, None)
     other = _session_with_questions(course, "2026-10-01")
     (other / "questions.yaml").write_text(
-        yaml.safe_dump([{"id": "tf1", "slot": "tf", "statement": "Different.", "answer": True}])
+        yaml.safe_dump(
+            [
+                {
+                    "id": "tf1",
+                    "slot": "tf",
+                    "tags": ["lu"],
+                    "statement": "Different.",
+                    "answer": True,
+                    "section": "2.5",
+                    "uses": ["2.5"],
+                    "justification": "Needs a swap.",
+                    "source": "from scratch",
+                    "difficulty": "easy",
+                    "minutes": 2,
+                }
+            ]
+        )
     )
     (line,) = bank.add(other, None)
     assert "bank/tf1-2026-10-01.yaml" in line
@@ -113,7 +141,7 @@ def test_bank_id_clash_gets_date(course):
 def test_migrate_bank(tmp_path):
     (tmp_path / "bank").mkdir()
     (tmp_path / "bank" / "example-tf-cancellation.md").write_text(
-        '---\ntopics: [inverses]\ntype: tf\nanswer: "False — A = [[1,0],[0,0]] gives AB = AC."\n'
+        '---\ntopics: [inverses]\nsection: "2.2"\ntype: tf\nanswer: "False — A = [[1,0],[0,0]] gives AB = AC."\n'
         "verified: true\nlast_used: 2026-09-23\n---\nIf AB = AC and A ≠ 0, then B = C.\n"
     )
     (tmp_path / "bank" / "broken.md").write_text("no front matter")
@@ -265,3 +293,19 @@ def test_examples_match_the_schemas():
     for entry in (example / "bank").glob("*.yaml"):
         assert load_bank_entry(entry).id == entry.stem
     assert not list((example / "bank").glob("*.md"))  # the bank is YAML now
+
+
+def test_course_with_per_session_topics_and_exams(tmp_path):
+    from schemas import load_course
+
+    (tmp_path / "course.yaml").write_text(
+        "course: X\nfinal_exam: '2026-12-15 18:00'\nexams: [{name: Midterm 2, date: 2026-10-20}]\n"
+        "schedule:\n  - week: 1\n    start: 2026-09-21\n    sections: [Week topic]\n"
+        "    sessions:\n      - {date: 2026-09-22, day: Tue, sections: [Session topic], goals: [g]}\n"
+        "      - {date: 2026-09-24, number: 7}\n"
+    )
+    c = load_course(tmp_path / "course.yaml")
+    assert c.exams[0].date == dt.date(2026, 10, 20) and c.final_exam.startswith("2026-12-15")
+    assert c.sections_for(dt.date(2026, 9, 22)) == (["Session topic"], ["g"])
+    assert c.sections_for(dt.date(2026, 9, 24)) == (["Week topic"], [])
+    assert c.session_number(dt.date(2026, 9, 22)) is None and c.session_number(dt.date(2026, 9, 24)) == 7

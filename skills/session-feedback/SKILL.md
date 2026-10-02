@@ -59,6 +59,7 @@ If there were no slips this time, leave the section blank and don't ask again.
 - **Replace contradicted lessons** instead of keeping both. Mention the change to the user.
 - One-off events ("fire drill cut the session short") are not lessons.
 - Keep "Students" lessons (misconceptions, what this group finds hard) separate from "Preferences" (how the leader likes material). Move topic-specific struggles to "Revisit" with the topic, and remove them once revisited.
+- **Too-early topics become a check, not just a lesson.** If feedback says students hadn't learned something a question used ("we haven't done determinants yet"), propose a `prerequisites:` entry in `course.yaml`: the scheduled topic, mapped to the words that gave it away. Then `verify_runner.py` catches it next time. Add it only if the user approves.
 - Keep the whole file under about 60 lines. Merge or drop the weakest lessons when it grows.
 
 Show the user the lesson changes as a short before/after list. Apply them directly: this file is private to the course and meant to evolve.

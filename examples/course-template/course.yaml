@@ -7,6 +7,13 @@ session:
   structure: default           # see skills/session-prep/references/session-structure.md
 drive_folder: ""               # optional Google Drive folder URL/id
 drive_local: ""                # optional local path of that folder (Drive for desktop)
+exams:                         # optional; dates the plan can count down to
+  - {name: Midterm 1, date: 2026-09-17}
+# Topic labels are whatever you write under `sections:` below — numbered or not. Questions
+# name them in `section:` / `uses:` (an unambiguous prefix like "2.1" also works), and
+# verify_runner fails a question that relies on a topic scheduled after its session.
+prerequisites:                 # optional backstop: words that give away a later topic
+  "2.2": ["inverse", "invertible"]
 schedule:
   - week: 1
     start: 2026-08-17          # Monday of the week
@@ -16,3 +23,10 @@ schedule:
     sessions:                  # session numbers shown on slides; never inferred
       - {date: 2026-08-18, number: 1}
       - {date: 2026-08-20, number: 2}
+  - week: 2
+    start: 2026-08-24
+    sections: ["2.1 Matrix operations", "2.2 The inverse of a matrix"]
+    goals: ["multiply matrices; find an inverse"]
+    sessions:
+      - {date: 2026-08-25, number: 3, sections: ["2.1 Matrix operations"]}   # per-session topics, optional
+      - {date: 2026-08-27, number: 4, sections: ["2.2 The inverse of a matrix"]}

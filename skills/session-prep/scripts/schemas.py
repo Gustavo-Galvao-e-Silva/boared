@@ -45,7 +45,15 @@ class SessionFormat(_Model):
 
 class ScheduledSession(_Model):
     date: dt.date
-    number: int  # session number shown on slides; never inferred
+    number: int | None = None  # session number shown on slides; never inferred (None = ask the leader)
+    day: str = ""
+    sections: list[str] = []  # this session's sections/goals, when they differ from the week's
+    goals: list[str] = []
+
+
+class Exam(_Model):
+    name: str
+    date: dt.date
 
 
 class Week(_Model):
@@ -64,6 +72,11 @@ class Course(_Model):
     session: SessionFormat = SessionFormat()
     drive_folder: str = ""
     drive_local: str = ""  # optional local path of the synced Drive folder
+    final_exam: str = ""  # optional, free text (e.g. "2026-12-15 18:00-20:50")
+    exams: list[Exam] = []
+    # topic label → words that give it away in a question, for the schedule check's backstop.
+    # Labels are the course's own `sections` strings (or a prefix that picks out one of them).
+    prerequisites: dict[str, list[str]] = {}
     schedule: list[Week]
 
     def week_for(self, date: dt.date) -> Week | None:
@@ -74,12 +87,51 @@ class Course(_Model):
                 found = w
         return found
 
-    def session_number(self, date: dt.date) -> int | None:
+    def session_for(self, date: dt.date) -> ScheduledSession | None:
         for w in self.schedule:
             for s in w.sessions:
                 if s.date == date:
-                    return s.number
+                    return s
         return None
+
+    def session_number(self, date: dt.date) -> int | None:
+        s = self.session_for(date)
+        return s.number if s else None
+
+    def labels(self) -> dict[str, dt.date]:
+        """Every topic label in the schedule → the first date it is taught: the earliest session
+        that lists it, else the start of the earliest week that lists it."""
+        by_session: dict[str, dt.date] = {}
+        by_week: dict[str, dt.date] = {}
+        for w in self.schedule:
+            for label in w.sections:
+                by_week[label] = min(by_week.get(label, w.start), w.start)
+            for s in w.sessions:
+                for label in s.sections:
+                    by_session[label] = min(by_session.get(label, s.date), s.date)
+        return by_week | by_session
+
+    def resolve_label(self, name: str) -> str | None:
+        """The schedule label `name` refers to: an exact match (ignoring case), or the one label
+        that starts with `name` followed by a space ("3.1" → "3.1 Determinants")."""
+        key = name.strip().casefold()
+        known = list(self.labels())
+        exact = [lab for lab in known if lab.strip().casefold() == key]
+        if exact:
+            return exact[0]
+        prefixed = [lab for lab in known if lab.strip().casefold().startswith(key + " ")]
+        return prefixed[0] if len(prefixed) == 1 else None
+
+    def taught_on(self, name: str) -> dt.date | None:
+        label = self.resolve_label(name)
+        return self.labels()[label] if label else None
+
+    def sections_for(self, date: dt.date) -> tuple[list[str], list[str]]:
+        """(sections, goals) for a session date: the session's own, else its week's."""
+        s, w = self.session_for(date), self.week_for(date)
+        sections = (s.sections if s else []) or (w.sections if w else [])
+        goals = (s.goals if s else []) or (w.goals if w else [])
+        return sections, goals
 
 
 # --- questions.yaml and bank/<id>.yaml ------------------------------------------
@@ -94,13 +146,16 @@ class GeneratorRef(_Model):
 class Question(_Model):
     id: str
     slot: Slot
-    tags: list[str] = []
+    section: str  # the course topic label (from course.yaml `sections`) this question practises
+    uses: list[str]  # every topic label the question AND its justification rely on
+    tags: list[str]
     statement: str
-    answer: Any = None
-    justification: str = ""
-    source: str = "from scratch"  # bank:<id> | exam:<file> | url | generator:<name>
-    difficulty: Difficulty = "medium"
-    minutes: float = 3
+    answer: Any
+    justification: str
+    source: str  # from scratch | bank:<id> | exam:<file> | url | generator:<name>
+    difficulty: Difficulty
+    minutes: float
+    preview: bool = False  # deliberately uses a topic taught later: a schedule warning, not a failure
     choices: dict[str, str] | None = None  # multiple choice: letter -> text; answer = letter(s)
     image: str | None = None  # math PNG (relative to the session folder) shown with the statement
     latex: str | None = None  # or: LaTeX that render_questions.py renders to math/<id>.png
@@ -113,6 +168,20 @@ class Question(_Model):
     def _id_shape(cls, v: str) -> str:
         if not ID_PATTERN.match(v):
             raise ValueError(f"id {v!r} must be lowercase letters, digits, '-' or '_', starting with a letter")
+        return v
+
+    @field_validator("tags", "uses")
+    @classmethod
+    def _not_empty(cls, v: list[str]) -> list[str]:
+        if not v:
+            raise ValueError("needs at least one entry")
+        return v
+
+    @field_validator("justification", "section", "source")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be empty")
         return v
 
     @model_validator(mode="after")
@@ -128,6 +197,8 @@ class Question(_Model):
                 raise ValueError(f"answer {unknown} is not one of the choices {list(self.choices)}")
         if self.generator is not None and self.generator.name not in self.tags:
             self.tags = [*self.tags, self.generator.name]  # the generator name counts as a tag
+        if self.section not in self.uses:
+            self.uses = [self.section, *self.uses]  # a question relies on its own section
         return self
 
 
@@ -255,6 +326,15 @@ def _format(e: ValidationError, name: str, ids: list[str] | None = None) -> str:
     return "\n".join(lines)
 
 
+def find_course_dir(path: Path) -> Path | None:
+    """The nearest folder at or above `path` that holds course.yaml."""
+    path = Path(path).resolve()
+    for d in [path, *path.parents]:
+        if (d / "course.yaml").exists():
+            return d
+    return None
+
+
 def _read(path: Path) -> Any:
     try:
         return yaml.safe_load(Path(path).read_text())
@@ -325,5 +405,6 @@ def dump_yaml(data: Any) -> str:
 def question_dict(q: Question) -> dict:
     """A question as it should be written back to YAML: defaults and empty fields dropped."""
     rest = q.model_dump(mode="json", exclude_defaults=True, exclude_none=True)
-    head = {"id": q.id, "slot": q.slot, "tags": q.tags, "statement": q.statement, "answer": q.answer}
+    head = {"id": q.id, "slot": q.slot, "section": q.section, "uses": q.uses, "tags": q.tags}
+    head |= {"statement": q.statement, "answer": q.answer}
     return head | {k: v for k, v in rest.items() if k not in head}
