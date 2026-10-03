@@ -7,12 +7,14 @@ verified / last_used / times_used. Reusing or promoting a question is a copy.
 
 Usage:
     bank.py add  SESSION_DIR [--ids tf4,pi2]          # promote session questions into COURSE/bank
-    bank.py find COURSE_DIR [--tags lu,inverses] [--slot tf] [--before DATE] [--skip-recent 3]
+    bank.py find COURSE_DIR [--tags lu,inverses] [--slot tf] [--kahoot] [--before DATE] [--skip-recent 3]
     bank.py use  SESSION_DIR BANK_ID [--as NEW_ID]    # copy a bank question into questions.yaml
 
 add:  marks questions verified only if the session's verify.log passed and is current.
       A bank ID that already holds a different statement gets the session date appended.
+      kahoot_uses is 1 for questions in the session's Kahoot (kahoot.yaml).
 find: lists matching entries, skipping any used in the last N sessions (default 3).
+      --kahoot keeps only entries that can go into a Kahoot as they are.
 use:  appends the question with source bank:<id>, and updates last_used / times_used.
 """
 
@@ -37,7 +39,7 @@ from schemas import (  # noqa: E402
     question_dict,
 )
 
-BANK_ONLY = ("verified", "last_used", "times_used")
+BANK_ONLY = ("verified", "last_used", "times_used", "kahoot_uses")
 
 
 def _course_dir(session: Path) -> Path:
@@ -69,6 +71,7 @@ def load_bank(course: Path, problems: list[str] | None = None) -> dict[str, Bank
 
 
 def add(session: Path, ids: list[str] | None) -> list[str]:
+    from kahoot import recorded_ids
     from verify_runner import log_problem
 
     course = _course_dir(session)
@@ -77,6 +80,7 @@ def add(session: Path, ids: list[str] | None) -> list[str]:
     if unknown:
         raise SchemaError(f"not in questions.yaml: {', '.join(unknown)}")
     problem = log_problem(session)
+    in_kahoot = recorded_ids(session)
     bank_dir = course / "bank"
     bank_dir.mkdir(exist_ok=True)
     done = []
@@ -86,6 +90,8 @@ def add(session: Path, ids: list[str] | None) -> list[str]:
         if q.source.startswith("bank:"):
             continue  # already in the bank; `use` updated it
         entry = question_dict(q) | {"verified": problem is None, "last_used": session.name, "times_used": 1}
+        if q.id in in_kahoot:
+            entry["kahoot_uses"] = 1
         bank_id = q.id
         path = bank_dir / f"{bank_id}.yaml"
         if path.exists() and load_bank_entry(path).statement.strip() != q.statement.strip():
@@ -99,8 +105,16 @@ def add(session: Path, ids: list[str] | None) -> list[str]:
 
 
 def find(
-    course: Path, tags: list[str], slot: str | None, before: dt.date, skip_recent: int, problems: list[str] | None = None
+    course: Path,
+    tags: list[str],
+    slot: str | None,
+    before: dt.date,
+    skip_recent: int,
+    problems: list[str] | None = None,
+    kahoot: bool = False,
 ) -> list[BankEntry]:
+    from kahoot import blocker
+
     sessions = sorted(p.name for p in (course / "sessions").glob("20*-*-*") if p.name < before.isoformat())
     recent = set(sessions[-skip_recent:]) if skip_recent else set()
     out = []
@@ -110,6 +124,8 @@ def find(
         if tags and not set(tags) & set(entry.tags):
             continue
         if entry.last_used and entry.last_used.isoformat() in recent:
+            continue
+        if kahoot and blocker(entry) is not None:
             continue
         out.append(entry)
     return sorted(out, key=lambda e: (not e.verified, e.times_used, e.id))
@@ -145,6 +161,7 @@ def main() -> None:
     f.add_argument("course", type=Path)
     f.add_argument("--tags", default="")
     f.add_argument("--slot")
+    f.add_argument("--kahoot", action="store_true", help="only entries that can go into a Kahoot")
     f.add_argument("--before", type=dt.date.fromisoformat, default=dt.date.today() + dt.timedelta(days=1))
     f.add_argument("--skip-recent", type=int, default=3)
     u = sub.add_parser("use")
@@ -161,12 +178,15 @@ def main() -> None:
         elif args.cmd == "find":
             tags = [t.strip() for t in args.tags.split(",") if t.strip()]
             problems: list[str] = []
-            entries = find(args.course.resolve(), tags, args.slot, args.before, args.skip_recent, problems)
+            entries = find(args.course.resolve(), tags, args.slot, args.before, args.skip_recent, problems, args.kahoot)
             for problem in problems:
                 print(f"skipped (run migrate_bank.py --fill-required): {problem}", file=sys.stderr)
             for e in entries:
                 flag = "verified" if e.verified else "UNVERIFIED"
-                print(f"{e.id:<24} {e.slot:<8} {e.difficulty:<7} {flag:<10} used {e.times_used}×, last {e.last_used or '-'}")
+                kahoot = f", kahoot {e.kahoot_uses}×" if e.kahoot_uses else ""
+                print(
+                    f"{e.id:<24} {e.slot:<8} {e.difficulty:<7} {flag:<10} used {e.times_used}×, last {e.last_used or '-'}{kahoot}"
+                )
                 print(f"    {e.statement.strip().splitlines()[0][:100]}")
             if not entries:
                 print("no matching bank questions")

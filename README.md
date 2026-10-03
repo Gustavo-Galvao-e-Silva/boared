@@ -62,6 +62,16 @@ Each session's questions live in one file, `sessions/<date>/questions.yaml`, and
 
 Edit the deck however you like before presenting.
 
+## Kahoot (optional)
+
+If the [Kahoot](https://kahoot.com) MCP is connected, session-prep offers to turn the session's verified T/F, possible/impossible and multiple-choice questions into a Kahoot in your account. It always asks first. Connect it through the Kahoot connector or plugin in Claude, or from the terminal:
+
+```
+claude mcp add --transport http kahoot https://mcp.kahoot.it/mcp
+```
+
+Kahoot only shows short plain text (120 characters per question, 75 per choice), so a question whose math is in LaTeX, or that is too long, gets a short `kahoot.question` in `questions.yaml`. `kahoot: {include: false}` leaves a question out. Re-exporting updates the same Kahoot (`sessions/<date>/kahoot.yaml`), and bank entries count how many Kahoots they've been in.
+
 ## It learns from each session
 
 After the session:
@@ -98,6 +108,7 @@ skills/session-prep/
     inspect_template.py             describe a template and draft template-map.yaml
     confidence.py                   confidence-slip summaries and history
     deliver.py                      get the deck into Drive (local copy, reveal, or base64)
+    kahoot.py                       questions.yaml → Kahoot MCP payload; record the Kahoot it made
     diff_decks.py                   what changed between the generated and the presented deck
 ```
 

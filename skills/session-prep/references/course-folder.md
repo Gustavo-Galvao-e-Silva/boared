@@ -19,6 +19,9 @@ exams:                         # optional: [{name, date}]
   - {name: Midterm 2, date: 2026-10-01}
 prerequisites:                 # optional: topic → words that give it away (the schedule check's backstop)
   "Determinants": ["det(", "determinant"]
+kahoot:                        # optional: where kahoot.py exports go
+  folder: ""                   # Kahoot folder id; empty = the account's default workspace
+  language: English            # a language name Kahoot accepts
 schedule:
   - week: 5
     start: 2026-09-21          # Monday of the week
@@ -57,11 +60,23 @@ minutes: 2
 verified: true                  # set by `bank.py add` only when the session's verify.log passed and was current
 last_used: 2026-09-23
 times_used: 1
+kahoot_uses: 1                  # Kahoots it was in: set by `bank.py add`, counted by `kahoot.py record` for bank:<id> questions
 ```
 
 An old Markdown bank (`bank/*.md` with front matter) is converted once with `scripts/migrate_bank.py <course-dir>`.
 
 **Upgrading from 0.2.** `section`, `uses`, `tags`, `answer`, `justification`, `difficulty`, `minutes` and `source` are now required. Run `scripts/migrate_bank.py <course-dir> --fill-required --dry-run`, then without `--dry-run`. It fills the defaults 0.2 used and takes `uses`/`section` from the schedule. It lists every field it can't fill honestly (usually justifications, and `section` when a session had several topics) for you to write. Until then, `bank.py find` skips the incomplete entries and says so.
+
+## sessions/YYYY-MM-DD/kahoot.yaml
+
+Written by `kahoot.py record` after the Kahoot is created. The next `kahoot.py payload` includes its `uuid`, so re-exporting replaces the same Kahoot (`--new` starts a fresh one).
+
+```yaml
+uuid: 0b9d…                     # the Kahoot's id
+url: https://create.kahoot.it/…  # editor link
+exported: 2026-10-02
+questions: [tf1, tf2, pi1, w1]  # question ids in it
+```
 
 ## template-map.yaml
 
