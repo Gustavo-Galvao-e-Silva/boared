@@ -1,6 +1,5 @@
 # private course material — never publish
-courses/*
-!courses/.gitkeep
+courses/
 
 .venv/
 __pycache__/

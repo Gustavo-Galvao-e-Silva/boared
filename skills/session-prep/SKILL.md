@@ -22,7 +22,7 @@ Always use absolute paths for the skill dir, the course folder and the session f
 ## 0. Check tools, find the course
 
 - Run `uv run <this-skill-dir>/scripts/doctor.py` once per run. If something is missing, tell the user once, with the fallback it prints (e.g. no TeX → math as Unicode text), and carry on.
-- Find `course.yaml` in the current directory, then in `courses/*/course.yaml`. If several match, ask which course. If none exists, offer to create one from `examples/course-template/` in the plugin repo and fill in `course.yaml` with the user from their syllabus. Don't proceed without a schedule.
+- Find `course.yaml` in the current directory, then in `courses/*/course.yaml`. If several match, ask which course. If none exists, offer to create one, outside the plugin folder, from `<this-skill-dir>/../../examples/course-template/` and fill in `course.yaml` with the user from their syllabus. Don't proceed without a schedule.
 
 Course folder layout (schemas in `references/course-folder.md`):
 

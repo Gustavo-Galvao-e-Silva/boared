@@ -78,7 +78,7 @@ Record the outcome as one line under Preferences: `Confidence review: keep, …`
 Some feedback isn't about this course. It shows the skill itself is wrong or unclear: a script bug, a default that is bad for any course, an instruction Claude misread, a slide rule that keeps getting hand-fixed. For those:
 - Say what's wrong and which file it's in (`session-prep/SKILL.md`, a `references/` file, or a script).
 - Show the proposed edit as a diff.
-- Apply it only if the user approves, and run the tests (`uv run pytest` in the plugin repo) before calling it done. These files are shared by everyone who installs the plugin. Course-specific preferences stay in `lessons.md`.
+- Apply it only if the user approves, and only in a git checkout of the plugin (one with `tests/` and `.git`). Run the tests (`uv run pytest`) before calling it done. In an installed copy, edits are lost on the next update: offer to open a GitHub issue at https://github.com/Gustavo-Galvao-e-Silva/boared/issues with the diff instead. These files are shared by everyone who installs the plugin. Course-specific preferences stay in `lessons.md`.
 
 If nothing generic came up, skip this step without comment.
 
