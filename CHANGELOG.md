@@ -2,6 +2,19 @@
 
 All notable changes to boared. Versions follow `.claude-plugin/plugin.json`. Bump it with every change.
 
+## 0.4.0 — 2026-10-02
+
+### Kahoot export (optional)
+- `kahoot.py payload <session>` turns the verified questions into arguments for the Kahoot MCP's `create_or_update_kahoot`: `tf` → True/False, `pi` → Possible/Impossible, `choices` → quiz with the correct letter(s) marked. Markup is removed and Kahoot's limits are checked (120 characters per question, 75 per choice, 6 choices). It refuses a stale or failed `verify.log`, and lists every skipped question with the reason.
+- An optional per-question `kahoot:` block: a short plain-text `question` (needed when the math is in `latex:`/`image:`), shorter `choices`, `time`, or `include: false`. A question with the block must export.
+- `kahoot.py record` writes `sessions/<date>/kahoot.yaml` (uuid, editor link, question ids), so a re-export replaces the same Kahoot. Bank entries gain `kahoot_uses`, set by `bank.py add` and counted by `record` for `bank:` questions. `bank.py find --kahoot` lists entries that export as they are.
+- `course.yaml` gains `kahoot: {folder, language}`. An empty `folder` saves to the account's default workspace: Kahoot refused a workspace id from `get_workspaces` as a `folderId`. session-prep step 10 asks before creating a Kahoot.
+
+### Ready for Anthropic's plugin directory
+- Logo (`boared.png`), and `displayName`, `homepage`, `repository`, `documentationUrl`, `supportUrl` and `icon` in `plugin.json`. The marketplace has a description. `claude plugin validate --strict` passes.
+- The README says what the plugin runs, sends and fetches, and how to install it from the directory. Course folders live outside the plugin: the empty `courses/` placeholder is gone.
+- session-feedback proposes skill fixes as a GitHub issue when running from an installed copy, where edits would be lost on update.
+
 ## 0.3.0 — 2026-10-01
 
 ### Questions must be teachable on the day

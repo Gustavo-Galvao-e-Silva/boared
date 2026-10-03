@@ -65,6 +65,11 @@ class Week(_Model):
     sessions: list[ScheduledSession] = []
 
 
+class KahootSettings(_Model):
+    folder: str = ""  # Kahoot folder id the export saves into ("" = the account's default workspace)
+    language: str = "English"  # a language name Kahoot accepts
+
+
 class Course(_Model):
     course: str
     term: str = ""
@@ -77,6 +82,7 @@ class Course(_Model):
     # topic label → words that give it away in a question, for the schedule check's backstop.
     # Labels are the course's own `sections` strings (or a prefix that picks out one of them).
     prerequisites: dict[str, list[str]] = {}
+    kahoot: KahootSettings = KahootSettings()
     schedule: list[Week]
 
     def week_for(self, date: dt.date) -> Week | None:
@@ -137,6 +143,37 @@ class Course(_Model):
 # --- questions.yaml and bank/<id>.yaml ------------------------------------------
 
 
+# Kahoot's limits (create_or_update_kahoot): question text, choice text, choices per question, time limits
+KAHOOT_QUESTION_MAX = 120
+KAHOOT_CHOICE_MAX = 75
+KAHOOT_CHOICES_MAX = 6
+KAHOOT_TIMES = (5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240)
+
+
+class KahootSpec(_Model):
+    """How a question goes into a Kahoot. Without it, kahoot.py exports the question when it fits."""
+
+    include: bool = True
+    question: str | None = Field(None, max_length=KAHOOT_QUESTION_MAX)  # plain-text statement for Kahoot
+    choices: dict[str, str] | None = None  # shorter choice texts, by letter
+    time: int | None = None  # seconds to answer
+
+    @field_validator("choices")
+    @classmethod
+    def _short_choices(cls, v: dict[str, str] | None) -> dict[str, str] | None:
+        long = [k for k, text in (v or {}).items() if len(text) > KAHOOT_CHOICE_MAX]
+        if long:
+            raise ValueError(f"choices {long} are longer than {KAHOOT_CHOICE_MAX} characters")
+        return v
+
+    @field_validator("time")
+    @classmethod
+    def _allowed_time(cls, v: int | None) -> int | None:
+        if v is not None and v not in KAHOOT_TIMES:
+            raise ValueError(f"time must be one of {', '.join(map(str, KAHOOT_TIMES))} seconds")
+        return v
+
+
 class GeneratorRef(_Model):
     name: str
     seed: str
@@ -162,6 +199,7 @@ class Question(_Model):
     data: dict[str, Any] | None = None  # the objects the question is about (matrices, ...), for checks
     generator: GeneratorRef | None = None
     notes: str = ""  # extra speaker notes (hints, timing)
+    kahoot: KahootSpec | None = None  # Kahoot export: leave out, short text, or time (see kahoot.py)
 
     @field_validator("id")
     @classmethod
@@ -195,6 +233,10 @@ class Question(_Model):
             unknown = [a for a in letters if a not in self.choices]
             if unknown:
                 raise ValueError(f"answer {unknown} is not one of the choices {list(self.choices)}")
+        if self.kahoot and self.kahoot.choices:
+            unknown = sorted(set(self.kahoot.choices) - set(self.choices or {}))
+            if unknown:
+                raise ValueError(f"kahoot.choices {unknown} are not among the question's choices {list(self.choices or {})}")
         if self.generator is not None and self.generator.name not in self.tags:
             self.tags = [*self.tags, self.generator.name]  # the generator name counts as a tag
         if self.section not in self.uses:
@@ -206,6 +248,7 @@ class BankEntry(Question):
     verified: bool = False
     last_used: dt.date | None = None
     times_used: int = 0
+    kahoot_uses: int = 0  # sessions whose Kahoot included it
 
 
 # --- template-map.yaml ------------------------------------------------------------

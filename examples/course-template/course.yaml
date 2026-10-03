@@ -14,6 +14,9 @@ exams:                         # optional; dates the plan can count down to
 # verify_runner fails a question that relies on a topic scheduled after its session.
 prerequisites:                 # optional backstop: words that give away a later topic
   "2.2": ["inverse", "invertible"]
+kahoot:                        # optional: Kahoot exports (needs the Kahoot MCP)
+  folder: ""                   # Kahoot folder id; empty = your default workspace
+  language: English
 schedule:
   - week: 1
     start: 2026-08-17          # Monday of the week

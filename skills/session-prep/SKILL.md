@@ -22,7 +22,7 @@ Always use absolute paths for the skill dir, the course folder and the session f
 ## 0. Check tools, find the course
 
 - Run `uv run <this-skill-dir>/scripts/doctor.py` once per run. If something is missing, tell the user once, with the fallback it prints (e.g. no TeX → math as Unicode text), and carry on.
-- Find `course.yaml` in the current directory, then in `courses/*/course.yaml`. If several match, ask which course. If none exists, offer to create one from `examples/course-template/` in the plugin repo and fill in `course.yaml` with the user from their syllabus. Don't proceed without a schedule.
+- Find `course.yaml` in the current directory, then in `courses/*/course.yaml`. If several match, ask which course. If none exists, offer to create one, outside the plugin folder, from `<this-skill-dir>/../../examples/course-template/` and fill in `course.yaml` with the user from their syllabus. Don't proceed without a schedule.
 
 Course folder layout (schemas in `references/course-folder.md`):
 
@@ -78,6 +78,8 @@ Schema and slot rules in `references/questions.md`. Follow the session structure
 
 Every question needs `section`, `uses`, `tags`, `answer`, a real `justification`, `difficulty`, `minutes` and `source`. Topics are the labels in `course.yaml`'s schedule. **Before writing each question, list the topics it and its justification rely on, and put all of them in `uses`.** A correct answer that needs a tool students haven't seen yet is still a bad question. A deliberate preview gets `preview: true`, and you flag it for the leader.
 
+If the leader uses Kahoot, give T/F, possible/impossible and multiple-choice questions whose statement is long (over 120 characters) or whose math is in `latex:` a short plain-text `kahoot.question` (see `references/questions.md`).
+
 Think critically: if the week's topics, the requested structure, or a user instruction would make a weak session, say so and propose something better. Don't just comply.
 
 ## 6. Verify — nothing ships unverified
@@ -112,4 +114,15 @@ If the build warns that text may overflow, shorten the text or give the field a 
 - Look at `render/slide-*.png` if the render step produced them. Then `open <session>/deck.pptx` (macOS; otherwise tell the user the path) and summarise in a few lines: questions, what was verified, anything you pushed back on.
 - Fill the **Prep review** section of `feedback.md`: every change the user asked for at the checkpoint and after seeing the deck, in their words where possible, plus pushback and how it resolved. If they ask for more changes later, append them and rebuild.
 - Drive: run `deliver.py <session>/deck.pptx --course <course-dir> --options` and offer the routes it lists, best first. **Ask before doing any of them.**
+- **Kahoot** (optional): see step 10. Do it before promoting to the bank, so promoted questions carry their Kahoot use.
 - Offer to promote new verified questions: `bank.py add <session> [--ids ...]`. It only marks them verified if `verify.log` passed and is current.
+
+## 10. Kahoot (optional)
+
+Only if a Kahoot MCP tool named `create_or_update_kahoot` is available (its prefix depends on how Kahoot was connected). Otherwise skip silently. `doctor.py` can't see MCP tools.
+
+1. **Ask** whether the leader wants a Kahoot of this session. Creating one publishes to their Kahoot account.
+2. Leave `kahoot.folder` in `course.yaml` empty unless the leader wants a specific folder. The Kahoot is then saved to the account's default workspace. A workspace id from `get_workspaces` can be refused as a folder ("You don't have access to the folder"). If that happens, clear `folder`, rerun `payload`, and tell the leader.
+3. `uv run <this-skill-dir>/scripts/kahoot.py payload <session>`. It refuses unless `verify.log` passed and is current. It lists what was included and why anything was skipped. Fix a question the leader expected in it (usually with `kahoot.question`), re-verify and rerun.
+4. Call `create_or_update_kahoot` with the contents of `<session>/kahoot.payload.json` as its arguments, unchanged. When the payload has a `uuid`, this replaces that Kahoot. The tool shows its own preview, so don't call `preview_kahoot` as well.
+5. Get the link with `get_kahoot_editor_url`, then `kahoot.py record <session> --uuid <uuid> --url <link>`. Give the leader the link.

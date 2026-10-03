@@ -1,11 +1,12 @@
 {
   "name": "boared",
   "owner": { "name": "Gustavo Galvao e Silva" },
+  "description": "boared: Claude skills for prepping math study sessions with verified questions and template-based decks.",
   "plugins": [
     {
       "name": "boared",
       "source": "./",
-      "description": "Prep math study sessions with verified questions and template-based .pptx decks."
+      "description": "Prep math study sessions with verified questions, template-based .pptx decks and optional Kahoot quizzes."
     }
   ]
 }

@@ -1,3 +1,5 @@
+<p align="center"><img src="boared.png" alt="boared logo: a bored whiteboard" width="160"></p>
+
 # boared
 
 Claude Code skills for prepping math study sessions (PLUS, Supplemental Instruction, recitations) with **verified** questions and slides built from **your own template**.
@@ -9,17 +11,21 @@ Say "prep Thursday's session" and get:
 3. **Generated practice problems** (row reduction, inverses, eigenvalues, span, LU) built backwards from a nice answer, so the arithmetic stays clean. Each one is reproducible from its seed and carries its own checks.
 4. **A .pptx deck** made by copying your template's slides and swapping the text: your fonts, colours and layout, with LaTeX-typeset math, answer slides with marks filled in, and answers in the speaker notes.
 
+5. **Optional: a Kahoot quiz** of the session's verified true/false, possible/impossible and multiple-choice questions, if the Kahoot connector is set up.
+
 v1 covers linear algebra. Other subjects can verify with sympy.
 
 ## Requirements
 
-- [Claude Code](https://claude.com/claude-code)
+- [Claude Code](https://claude.com/claude-code). The skills run local Python scripts, so they need Claude Code (or a Cowork session on your computer), not claude.ai chat.
 - [uv](https://docs.astral.sh/uv/): scripts declare their own dependencies (PEP 723), so there's nothing to install by hand
 - Optional: a TeX distribution with `latex` and `dvipng` (math rendering), poppler (`pdftotext`, `pdftoppm`: exam search and previews), LibreOffice or Keynote (slide previews). `doctor.py` reports what's missing and what still works without it.
 
 ## Install
 
-As a plugin, from inside Claude Code:
+From Anthropic's plugin directory once it's listed: `/plugin directory` in Claude Code, or **Customize → Plugins** on claude.ai.
+
+Or from this repository, inside Claude Code:
 
 ```
 /plugin marketplace add Gustavo-Galvao-e-Silva/boared
@@ -30,7 +36,7 @@ The skills are then `boared:session-prep` and `boared:session-feedback`. You can
 
 ## Set up a course
 
-Copy `examples/course-template/` somewhere private (e.g. `courses/<course>/` in this repo, which is gitignored) and fill in:
+Make a private folder for the course (e.g. `~/Documents/PLUS/math-1554/`), outside the plugin, and copy [`examples/course-template/`](examples/course-template) into it. Or ask session-prep to set it up from your syllabus. Then fill in:
 
 ```
 course.yaml            schedule: weeks → sections, goals, and session dates with their numbers
@@ -42,11 +48,11 @@ lessons.md             starts empty; filled in by session-feedback
 
 The first run inspects `template.pptx`, shows you a thumbnail grid, and asks you once to confirm which slide is the warm-up, the T/F slide, the answer slide with marks, and so on. The answers are saved as `template-map.yaml`.
 
-Course materials stay in your course folder and are never part of this repo.
+Course materials stay in your course folder. The plugin never uploads them anywhere unless you ask (see below).
 
 ## Use
 
-From the course folder (or this repo), in Claude Code:
+From the course folder, in Claude Code:
 
 ```
 prep the next PLUS session
@@ -61,6 +67,32 @@ Each session's questions live in one file, `sessions/<date>/questions.yaml`, and
 4. builds `sessions/<date>/deck.pptx` with `build.sh` (verify → build → validate → preview) and never overwrites your hand edits.
 
 Edit the deck however you like before presenting.
+
+## Kahoot (optional)
+
+If the [Kahoot](https://kahoot.com) MCP is connected, session-prep offers to turn the session's verified T/F, possible/impossible and multiple-choice questions into a Kahoot in your account. It always asks first. Connect it through the Kahoot connector or plugin in Claude, or from the terminal:
+
+```
+claude mcp add --transport http kahoot https://mcp.kahoot.it/mcp
+```
+
+Kahoot only shows short plain text (120 characters per question, 75 per choice), so a question whose math is in LaTeX, or that is too long, gets a short `kahoot.question` in `questions.yaml`. `kahoot: {include: false}` leaves a question out. Re-exporting updates the same Kahoot (`sessions/<date>/kahoot.yaml`), and bank entries count how many Kahoots they've been in.
+
+## What it runs, sends and fetches
+
+Everything runs on your computer, through Claude Code:
+
+- **Python scripts** in `skills/session-prep/scripts/`, run with `uv run`. On first use, uv downloads their dependencies from PyPI: panchi, python-pptx, pyyaml, pydantic, sympy and pillow.
+- **Local tools** if installed: `latex`/`dvipng` (math images), poppler (`pdftotext`/`pdftoppm`), and LibreOffice or Keynote (slide previews).
+- **Files written** only inside your course folder (`sessions/<date>/`, `bank/`, `lessons.md`, `course.yaml`).
+
+Nothing leaves your computer except when you ask for it:
+
+- **Google Drive** (if the Drive connector is connected): pulling newer course materials, and putting a deck in your Drive folder. session-prep asks before any upload.
+- **Kahoot** (if the Kahoot connector is connected): the session's exported question texts, answers and time limits go to your Kahoot account. session-prep asks before creating or updating a Kahoot.
+- **Web research**, when you ask for questions from the web: URLs are cited in each question's `source:`.
+
+boared collects no analytics and has no server of its own.
 
 ## It learns from each session
 
@@ -98,6 +130,7 @@ skills/session-prep/
     inspect_template.py             describe a template and draft template-map.yaml
     confidence.py                   confidence-slip summaries and history
     deliver.py                      get the deck into Drive (local copy, reveal, or base64)
+    kahoot.py                       questions.yaml → Kahoot MCP payload; record the Kahoot it made
     diff_decks.py                   what changed between the generated and the presented deck
 ```
 

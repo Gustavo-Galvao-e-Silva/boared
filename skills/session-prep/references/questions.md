@@ -17,6 +17,9 @@ Validated by `scripts/schemas.py`. Errors name the question, e.g. `tf4: answer m
   difficulty: medium             # easy | medium | hard
   minutes: 2.5
   notes: "Hint: try 2x2 with L = [[1,0],[1,1]]."   # optional extra speaker notes
+  kahoot:                        # optional: how it goes into a Kahoot (kahoot.py)
+    question: "A invertible, A = LU ⇒ A⁻¹ = L⁻¹U⁻¹"   # plain text, ≤ 120 characters
+    time: 30                     # seconds: 5 10 15 20 30 45 60 90 120 180 240
 
 - id: w1
   slot: warmup
@@ -59,12 +62,34 @@ Validated by `scripts/schemas.py`. Errors name the question, e.g. `tf4: answer m
 
 ## Rules
 
-- **Every field above is required** except `choices`, `image`/`latex`, `data`, `generator`, `notes` and `preview`. A missing one is an error naming the question.
+- **Every field above is required** except `choices`, `image`/`latex`, `data`, `generator`, `notes`, `preview` and `kahoot`. A missing one is an error naming the question.
 - **Teachable yet?** `verify_runner.py` fails a question when a topic in `uses` is first taught after the session date, when a `uses` label matches no topic in the schedule, or when its statement, justification, answer or notes contain a word that `course.yaml` `prerequisites:` ties to a later topic. Before writing a question, list the concepts it and its justification need. The usual miss is a slick justification that leans on a later tool. When the check fails, rewrite the question by default; in the plan, name the item, the topic and the date it is taught. Use `preview: true` only for a deliberate preview, and the leader approves it in `plan.md`.
 - **IDs are permanent within a session.** Reordering questions is fine; renaming an ID means renaming its checks too (the runner flags orphans).
 - Statements use the deck markup: `**bold**` and `{{colour|text}}`, with colours from `template-map.yaml`. Short math as Unicode (A⁻¹, ℝ³); matrices go in `latex:` or a prepared `image:`.
 - `minutes` drives the Timeline. The total must be within 5 minutes of `session.length_min`.
 - Order is the session order. Consecutive questions with the same slot share slides according to the template map's `slots:` (e.g. 3 T/F per slide, then a hidden answer slide with marks).
+
+## Kahoot
+
+`kahoot.py payload <session>` exports the verified questions that have a Kahoot equivalent:
+
+| question | Kahoot |
+|---|---|
+| slot `tf` | True/False |
+| slot `pi` | quiz: Possible / Impossible |
+| any slot with `choices` (≤ 6) | quiz, with the answer letter(s) correct |
+| `problem`, `proof`, `warmup` without choices | skipped |
+
+Kahoot shows plain text only: markup is removed, questions are at most 120 characters and choices at most 75. The time defaults to 20/30/60 s for easy/medium/hard.
+
+The optional `kahoot:` block:
+- **left out**: the question is exported when it fits, and skipped (with the reason) when it doesn't;
+- `question:` a short plain-text statement. Required when the math is in `latex:`/`image:` or the statement is too long;
+- `choices:` shorter texts for some choice letters, e.g. `{C: "A itself"}`;
+- `time:` seconds to answer;
+- `include: false` leaves the question out.
+
+A question with a `kahoot:` block (and `include` not false) **must** export, or `payload` fails. Use the block to say "this one belongs in the Kahoot".
 
 ## Generated questions
 
