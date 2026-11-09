@@ -199,23 +199,57 @@ def _make_run(p, rpr_template, text: str, bold: bool, color: str | None):
     return r
 
 
+_PART = re.compile(r"^\([a-z]\)\s+")
+
+
+def _is_autonum(p) -> bool:
+    ppr = p.find(qn("a:pPr"))
+    return ppr is not None and ppr.find(qn("a:buAutoNum")) is not None
+
+
+def _base_rpr(runs):
+    """Formatting for unmarked text: the first run, or the first regular run after a bold label.
+
+    Template lines like "**Activity:** body" keep the label bold through ``**…**`` markup
+    while the body takes the template's regular run.
+    """
+    rprs = [r.find(qn("a:rPr")) for r in runs]
+    rprs = [rpr for rpr in rprs if rpr is not None]
+    if not rprs:
+        return None
+    if rprs[0].get("b") == "1":
+        regular = next((rpr for rpr in rprs if rpr.get("b") != "1"), None)
+        if regular is not None:
+            return regular
+    return rprs[0]
+
+
 def fill_txbody(txBody, value: str, colors: dict[str, str] | None = None) -> None:
     """Replace text, one paragraph per line, cloning the template paragraphs' formatting.
 
     Each line may use ``**bold**`` and ``{{colour|text}}``; every segment gets a copy of
-    the template paragraph's first run formatting with the markup overlaid.
+    the template paragraph's base run formatting with the markup overlaid. If the template
+    has an auto-numbered paragraph, lines starting "(a) ", "(b) ", … clone it (the label is
+    dropped, the numbering draws it) and the other lines clone the remaining paragraphs.
     """
     colors = colors or {}
     originals = txBody.findall(qn("a:p"))
     lines = str(value).rstrip("\n").split("\n")
+    parts = [p for p in originals if _is_autonum(p)]
+    plain = [p for p in originals if not _is_autonum(p)] or originals
+    n_plain = 0
 
-    for i, line in enumerate(lines):
-        p = copy.deepcopy(originals[min(i, len(originals) - 1)])
+    for line in lines:
+        if parts and _PART.match(line):
+            source, line = parts[0], _PART.sub("", line, count=1)
+        else:
+            source = plain[min(n_plain, len(plain) - 1)]
+            n_plain += 1
+        p = copy.deepcopy(source)
         runs = p.findall(qn("a:r"))
         end = p.find(qn("a:endParaRPr"))
-        if runs and runs[0].find(qn("a:rPr")) is not None:
-            rpr_template = runs[0].find(qn("a:rPr"))
-        else:
+        rpr_template = _base_rpr(runs)
+        if rpr_template is None:
             rpr_template = end
         rpr_template = copy.deepcopy(rpr_template) if rpr_template is not None else None
         for extra in p.findall(qn("a:fld")) + p.findall(qn("a:br")) + runs:

@@ -1,6 +1,5 @@
 {
   "name": "boared",
-  "displayName": "boared",
   "version": "0.4.0",
   "description": "Prep math study sessions (PLUS/SI/recitation): session plans, verified practice questions, .pptx decks built from your own template, and optional Kahoot quizzes.",
   "author": {
@@ -9,8 +8,6 @@
   },
   "homepage": "https://github.com/Gustavo-Galvao-e-Silva/boared",
   "repository": "https://github.com/Gustavo-Galvao-e-Silva/boared",
-  "documentationUrl": "https://github.com/Gustavo-Galvao-e-Silva/boared#readme",
-  "supportUrl": "https://github.com/Gustavo-Galvao-e-Silva/boared/issues",
   "license": "MIT",
   "icon": "./boared.png",
   "keywords": ["education", "math", "linear-algebra", "slides", "pptx", "study-sessions", "kahoot"]
