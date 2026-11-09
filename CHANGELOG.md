@@ -11,8 +11,9 @@ All notable changes to boared. Versions follow `.claude-plugin/plugin.json`. Bum
 - `course.yaml` gains `kahoot: {folder, language}`. An empty `folder` saves to the account's default workspace: Kahoot refused a workspace id from `get_workspaces` as a `folderId`. session-prep step 10 asks before creating a Kahoot.
 
 ### Ready for Anthropic's plugin directory
-- Logo (`boared.png`), and `displayName`, `homepage`, `repository`, `documentationUrl`, `supportUrl` and `icon` in `plugin.json`. The marketplace has a description. `claude plugin validate --strict` passes.
+- A logo, and `homepage`, `repository`, `author.url` and `icon` in `plugin.json`. The marketplace has a description. `claude plugin validate --strict` passes.
 - The README says what the plugin runs, sends and fetches, and how to install it from the directory. Course folders live outside the plugin: the empty `courses/` placeholder is gone.
+- `uv.lock` is no longer committed: the directory can't inspect a file that large. `uv sync` resolves from `pyproject.toml`.
 - session-feedback proposes skill fixes as a GitHub issue when running from an installed copy, where edits would be lost on update.
 
 ## 0.3.0 — 2026-10-01
